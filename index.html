@@ -164,6 +164,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div id="meals-container"></div>
 </div>
 
+<!-- MIS ALIMENTOS -->
+<div id="screen-misalimentos" class="screen">
+  <div class="header"><h1>Mis alimentos</h1></div>
+  <div style="padding:0 16px;margin-bottom:14px">
+    <div class="field-group"><span class="field-label">Nombre</span><input class="field-input" id="ma-name" placeholder="Ej: Milanesa de soja"></div>
+    <div class="field-row">
+      <div class="field-group"><span class="field-label">Calorías</span><input class="field-input" id="ma-cal" type="number" placeholder="kcal"></div>
+      <div class="field-group"><span class="field-label">Proteínas (g)</span><input class="field-input" id="ma-prot" type="number" placeholder="0"></div>
+    </div>
+    <div class="field-row">
+      <div class="field-group"><span class="field-label">Carbos (g)</span><input class="field-input" id="ma-carb" type="number" placeholder="0"></div>
+      <div class="field-group"><span class="field-label">Grasas (g)</span><input class="field-input" id="ma-fat" type="number" placeholder="0"></div>
+    </div>
+    <button class="save-btn" onclick="saveMyFood()">Guardar alimento</button>
+  </div>
+  <div class="section-title">Guardados</div>
+  <div class="meal-card" style="margin-bottom:16px">
+    <div id="my-foods-list"></div>
+  </div>
+</div>
+
 <div id="screen-comparador" class="screen">
   <div class="header"><h1>Comparar</h1></div>
   <div style="padding:0 16px;margin-bottom:10px;font-size:12px;color:var(--text3)">Seleccioná hasta 2 alimentos para comparar sus valores.</div>
@@ -246,6 +267,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <nav class="nav">
   <div class="nav-item active" onclick="showScreen('home',this)"><div class="nav-icon">🏠</div><span>Inicio</span></div>
+  <div class="nav-item" onclick="showScreen('misalimentos',this)"><div class="nav-icon">⭐</div><span>Mis comidas</span></div>
   <div class="nav-item" onclick="showScreen('comparador',this)"><div class="nav-icon">⚖️</div><span>Comparar</span></div>
   <div class="nav-item" onclick="showScreen('resumen',this)"><div class="nav-icon">📊</div><span>Resumen</span></div>
   <div class="nav-item" onclick="showScreen('objetivos',this)"><div class="nav-icon">🎯</div><span>Objetivos</span></div>
@@ -327,8 +349,32 @@ let state={
   activeCompSlot:null
 };
 
+let myFoods=[];
 function saveState(){try{localStorage.setItem('calmacros',JSON.stringify({meals:state.meals,targets:state.targets,weekData:state.weekData}))}catch(e){}}
 function loadState(){try{const d=localStorage.getItem('calmacros');if(d){const s=JSON.parse(d);state.meals=s.meals||state.meals;state.targets=s.targets||state.targets;state.weekData=s.weekData||state.weekData;document.getElementById('cal-edit').value=state.targets.cal;}}catch(e){}}
+function saveMyFoods(){try{localStorage.setItem('calmacros-myfoods',JSON.stringify(myFoods))}catch(e){}}
+function loadMyFoods(){try{const d=localStorage.getItem('calmacros-myfoods');if(d)myFoods=JSON.parse(d);}catch(e){}}
+
+function saveMyFood(){
+  const n=document.getElementById('ma-name').value.trim();
+  if(!n)return;
+  const food={n,cal:parseFloat(document.getElementById('ma-cal').value)||0,p:parseFloat(document.getElementById('ma-prot').value)||0,c:parseFloat(document.getElementById('ma-carb').value)||0,f:parseFloat(document.getElementById('ma-fat').value)||0};
+  myFoods.push(food);
+  saveMyFoods();
+  ['ma-name','ma-cal','ma-prot','ma-carb','ma-fat'].forEach(id=>document.getElementById(id).value='');
+  renderMyFoods();
+  const btn=document.querySelector('.save-btn');btn.textContent='¡Guardado!';setTimeout(()=>btn.textContent='Guardar alimento',1400);
+}
+function deleteMyFood(idx){myFoods.splice(idx,1);saveMyFoods();renderMyFoods();}
+function renderMyFoods(){
+  const el=document.getElementById('my-foods-list');
+  if(!myFoods.length){el.innerHTML=`<div class="empty-state">Todavía no guardaste ningún alimento.<br>¡Agregá el primero arriba!</div>`;return;}
+  el.innerHTML=myFoods.map((f,i)=>`
+    <div class="my-food-item">
+      <div><div class="food-name">${f.n}</div><div class="food-detail" style="margin-top:2px">${f.cal} kcal · P:${f.p}g C:${f.c}g G:${f.f}g</div></div>
+      <div class="my-food-delete" onclick="deleteMyFood(${i})">×</div>
+    </div>`).join('');
+}
 
 function showScreen(id,el){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -337,6 +383,7 @@ function showScreen(id,el){
   el.classList.add('active');
   if(id==='resumen')renderResumen();
   if(id==='comparador')renderCompSlots();
+  if(id==='misalimentos')renderMyFoods();
 }
 
 function setObj(o,el){
@@ -424,7 +471,8 @@ function closeModalBg(e){if(e.target.id==='modal')document.getElementById('modal
 function filterFoods(q){renderFoodList(q?FOODS.filter(f=>f.n.toLowerCase().includes(q.toLowerCase())):FOODS);}
 function tagHtml(tags){return(tags||[]).map(t=>t==='veg'?`<span class="tag tag-veg">vegetal</span>`:t==='pro'?`<span class="tag tag-pro">alto en prot</span>`:'').join('');}
 function renderFoodList(list){
-  document.getElementById('food-list').innerHTML=list.slice(0,12).map(f=>`
+  const allFoods=[...myFoods.map(f=>({...f,tags:['mia']})),...list];
+  document.getElementById('food-list').innerHTML=allFoods.slice(0,14).map(f=>`
     <div class="food-option" onclick='addFood(${JSON.stringify({n:f.n,cal:f.cal,p:f.p,c:f.c,f:f.f})})'>
       <div><div class="food-option-name">${f.n}${tagHtml(f.tags)}</div><div class="food-option-info">P:${f.p}g C:${f.c}g G:${f.f}g</div></div>
       <div style="font-size:12px;font-weight:500;color:var(--purple);flex-shrink:0">${f.cal} kcal</div>
@@ -525,7 +573,7 @@ function renderResumen(){
   document.getElementById('s-fat').innerHTML=`${t.f}<span class="macro-unit">g</span>`;
 }
 
-loadState();
+loadState();loadMyFoods();
 const now=new Date();
 document.getElementById('date-display').textContent=now.toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'short'});
 updateUI();renderMeals();
